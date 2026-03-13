@@ -1,0 +1,20 @@
+b_now [4.6e-06, 1e-06, 2e-05, 5263157.894736842]
+P0 [0.0237, 0.018, 0.04, 4545.454545454545]
+theta [0.2, 0.01, 1.0, 101.01010101010101]
+ecut [2.5, 1.0, 3.5, 40.0]
+alpha [1.82, 1.1, 3.0, 52.631578947368425]
+density [1, 1, 100, 1.0101010101010102]
+/lustre/hawcz01/scratch/userspace/rbabu/astroimage/gamera-time-dependent-scripts
+Initialized model parameters: b_now 4.6e-06 P0 0.0237 theta 0.2 ecut 2.5 alpha 1.82 density 1
+Initial scaled parameters:
+  theta: value=20.2020, low=1.0101, high=101.0101, 1e-3*randn range ≈ ±0.0030
+  b_now: value=24.2105, low=5.2632, high=105.2632, 1e-3*randn range ≈ ±0.0030
+  P0: value=107.7273, low=81.8182, high=181.8182, 1e-3*randn range ≈ ±0.0030
+  ecut: value=100.0000, low=40.0000, high=140.0000, 1e-3*randn range ≈ ±0.0030
+  alpha: value=95.7895, low=57.8947, high=157.8947, 1e-3*randn range ≈ ±0.0030
+model flux range:  1.935e-13 to 9.785e-11
+data flux range:   1.560e-13 to 1.831e-12
+ratio model/data:  1.516e+01
+non-zero points:   39 / 39
+Saved plots/model_vs_data_check.png
+Start the MCMC part

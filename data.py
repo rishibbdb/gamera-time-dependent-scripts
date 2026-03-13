@@ -23,6 +23,12 @@ TeV_to_erg = 1.60218
 
 datadir = current_directory+"/data/"
 
+hawcData = Table.read(datadir+"hawcData.csv", format="csv")
+hawcData["energy"].unit=u.erg
+hawcData["flux"].unit=1*(u.erg)/(u.cm**2*u.s)
+hawcData["flux_error_lo"].unit=1*(u.erg)/(u.cm**2*u.s)
+hawcData["flux_error_hi"].unit=1*(u.erg)/(u.cm**2*u.s)
+
 hessData = Table.read(datadir+"hessData.csv", format="csv")
 hessData["energy"].unit=u.erg
 hessData["flux"].unit=1*(u.erg)/(u.cm**2*u.s)
@@ -74,6 +80,7 @@ DataDict = {
     "NuSTAR" : fpmaData,
     "KM2A" : km2aData,
     "Tibet" : tibetData,
+    "HAWC" : hawcData,
 }
 
 SEDDict = {

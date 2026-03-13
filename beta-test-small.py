@@ -10,9 +10,8 @@ import emcee
 from multiprocessing import Pool
 from scipy.io import readsav
 from astropy.table import Table
-from base_model import *
+from clean_model import *
 import matplotlib.pyplot as plt
-
 
 fu = gp.Utils()
 bins = 200
@@ -24,7 +23,7 @@ known_properties = {
     'distance': 7e3, #pc
     'longi': 32.638, #deg 
     'lati' : 0.527,  #deg in GCS
-    'e_dot' : 9.8e46, #erg/sec
+    'e_dot' : 9.8e36, #erg/sec
     'char_age' : 43000, # yrs                                                                                                                                  
     'P' :  38.522e-3,  #sec                                                                                                                              
     'P_dot' :  1.4224e-14, #/sec/sec  
@@ -33,14 +32,28 @@ known_properties = {
     'alpha0' : None
 }
 
+
+P0 = 23.7e-03
+theta = 0.01
+alpha = 1.82
+ecut = 3.17
+b_now = 2.5e-06
+# model_parameters_fit_pwn = {
+#     #fit parameters, lowerbound, upperbound
+#     'b_now' : [b_now,1e-6,20e-6], #Gauss
+#     'P0' : [P0,18e-3,40e-3], #sec
+#     'theta' : [theta,0.01,1.0], #converstion frac fron pulsar lum to electrons
+#     'ecut' : [ecut,1,3.2], #log10(E/TeV)
+#     'alpha' : [alpha,1.1,3.0],
+#     'density' : [1,1,100]#/cm3 #low particle density region
+# }
 model_parameters_fit_pwn = {
-    #fit parameters, lowerbound, upperbound
-    'b_now' : [4.6e-6,1e-6,20e-6], #Gauss
-    'P0' : [30e-3,20e-3,50e-3], #sec
-    'theta' : [0.4469,0.1,1.0], #converstion frac fron pulsar lum to electrons
-    'ecut' : [2.5,1,3.2], #log10(E/TeV)
-    'alpha' : [2.2,1.1,3.0],
-    'density' : [1,1,100]#/cm3 #low particle density region
+    'b_now'  : [4.6e-6,  1e-6,   20e-6],   # well centred
+    'P0'     : [23.7e-3, 18e-3,  40e-3],    # ok
+    'theta'  : [0.2,     0.01,   1.0],      # was 0.01, now 0.2 — away from boundary
+    'ecut'   : [2.5,     1.0,    3.5],      # was 3.17 near bound=3.2, now centred
+    'alpha'  : [1.82,    1.1,    3.0],      # ok
+    'density': [1,      1,      100],      # ok
 }
 define_model_parameters_scales(model_parameters_fit_pwn)
 model_parameters_pwn = model_parameters_fit_pwn
@@ -57,20 +70,17 @@ chandraData = DataDict["Chandra"]
 fpmaData = DataDict["NuSTAR"]
 km2aData = DataDict["KM2A"]
 tibetData = DataDict["Tibet"]
+hawcData = DataDict["HAWC"]
 
-
-relic_eref = np.concatenate((hessData[hessData['is_ul']==False]['energy'], fermiData[fermiData['is_ul']==False]['energy'], fpmaData[fpmaData['is_ul']==False]['energy'], km2aData['energy'], tibetData['energy'], chandraData['energy']))
-relic_sed = np.concatenate((hessData[hessData['is_ul']==False]['flux'], fermiData[fermiData['is_ul']==False]['flux'], fpmaData[fpmaData['is_ul']==False]['flux'], km2aData['flux'], tibetData['flux'], chandraData['flux']))
-relic_sed_err_lo = np.concatenate((hessData[hessData['is_ul']==False]['flux_error_lo'], fermiData[fermiData['is_ul']==False]['flux_error_lo'], fpmaData[fpmaData['is_ul']==False]['flux_error_lo'], km2aData['flux_error_lo'], tibetData['flux_error_lo'], chandraData['flux_error_lo']))
-relic_sed_err_hi = np.concatenate((hessData[hessData['is_ul']==False]['flux_error_hi'], fermiData[fermiData['is_ul']==False]['flux_error_hi'], fpmaData[fpmaData['is_ul']==False]['flux_error_hi'], km2aData['flux_error_hi'], tibetData['flux_error_hi'], chandraData['flux_error_hi']))
-
+relic_eref = np.concatenate((hawcData['energy'],hessData[hessData['is_ul']==False]['energy'], fermiData[fermiData['is_ul']==False]['energy'], fpmaData[fpmaData['is_ul']==False]['energy'], km2aData['energy'], tibetData['energy'], chandraData['energy']))
+relic_sed = np.concatenate((hawcData['flux'],hessData[hessData['is_ul']==False]['flux'], fermiData[fermiData['is_ul']==False]['flux'], fpmaData[fpmaData['is_ul']==False]['flux'], km2aData['flux'], tibetData['flux'], chandraData['flux']))
+relic_sed_err_lo = np.concatenate((hawcData['flux_error_lo'],hessData[hessData['is_ul']==False]['flux_error_lo'], fermiData[fermiData['is_ul']==False]['flux_error_lo'], fpmaData[fpmaData['is_ul']==False]['flux_error_lo'], km2aData['flux_error_lo'], tibetData['flux_error_lo'], chandraData['flux_error_lo']))
+relic_sed_err_hi = np.concatenate((hawcData['flux_error_hi'],hessData[hessData['is_ul']==False]['flux_error_hi'], fermiData[fermiData['is_ul']==False]['flux_error_hi'], fpmaData[fpmaData['is_ul']==False]['flux_error_hi'], km2aData['flux_error_hi'], tibetData['flux_error_hi'], chandraData['flux_error_hi']))
 
 pwn_x = relic_eref
 pwn_y = relic_sed
 pwn_yerr_lo = relic_sed_err_lo
 pwn_yerr_hi = relic_sed_err_hi
-
-print("Relic size", relic_eref.size, relic_sed.size, relic_sed_err_lo.size)
 
 
 pwn_fit_parameters = ['theta','b_now','P0','ecut','alpha',]
@@ -86,17 +96,74 @@ for par in pwn_fit_parameters:
 pwn_bounds = (pwn_lower_bounds, pwn_upper_bounds)
 def proxy(cls_instance):
     return cls_instance.log_prob_pwn
-mcmc_result_pwn = run_mcmc(5,pwn_pars,pwn_fit.log_prob_pwn,pwn_x,pwn_y,pwn_yerr_lo, num_threads=4,num_walkers=10, num_burn_in=100, chain_steps=300)
 
-with open('mcmc_results/hawc_mcmc_result_pwn.npy', 'wb') as f:
+print("Initial scaled parameters:")
+for par in pwn_fit_parameters:
+    scaled = model_parameters_pwn[par][0] * model_parameters_pwn[par][-1]
+    lo     = model_parameters_pwn[par][1] * model_parameters_pwn[par][-1]
+    hi     = model_parameters_pwn[par][2] * model_parameters_pwn[par][-1]
+    print(f"  {par}: value={scaled:.4f}, low={lo:.4f}, high={hi:.4f}, "
+          f"1e-3*randn range ≈ ±{1e-3*3:.4f}")
+
+
+# # Test how likelihood changes with theta
+# base_pars = [model_parameters_pwn[p][0] * model_parameters_pwn[p][-1] 
+#              for p in pwn_fit_parameters]
+
+# print("Likelihood sensitivity test:")
+# for theta_val in [0.05, 0.1, 0.2, 0.5, 1.0]:
+#     test_pars = base_pars.copy()
+#     test_pars[0] = theta_val * model_parameters_pwn['theta'][-1]
+#     ll = pwn_fit.log_likelihood_pwn(test_pars, pwn_x, pwn_y, pwn_yerr_lo)
+#     print(f"  theta={theta_val:.2f}  log_likelihood={ll:.3e}")
+
+# for b_val in [1e-6, 5e-6, 10e-6, 20e-6]:
+#     test_pars = base_pars.copy()
+#     test_pars[1] = b_val * model_parameters_pwn['b_now'][-1]
+#     ll = pwn_fit.log_likelihood_pwn(test_pars, pwn_x, pwn_y, pwn_yerr_lo)
+#     print(f"  b_now={b_val:.1e}  log_likelihood={ll:.3e}")
+
+base_pars = [model_parameters_pwn[p][0] * model_parameters_pwn[p][-1] 
+             for p in pwn_fit_parameters]
+model = pwn_fit.fit_pwn_model(pwn_x, *base_pars)
+
+print(f"model flux range:  {model[0].min():.3e} to {model[0].max():.3e}")
+print(f"data flux range:   {pwn_y.min():.3e} to {pwn_y.max():.3e}")
+print(f"ratio model/data:  {np.median(model[0]) / np.median(pwn_y):.3e}")
+print(f"non-zero points:   {np.sum(model[0] > 0)} / {len(model[0])}")
+
+# Plot to see visually
+import matplotlib.pyplot as plt
+fig, ax = plt.subplots(figsize=(10,6))
+ax.plot(pwn_x, model[0], 'b.', label='model at data points')
+ax.errorbar(pwn_x, pwn_y, yerr=[pwn_yerr_lo, pwn_yerr_hi], 
+            fmt='ro', label='data')
+ax.set_xscale('log')
+ax.set_yscale('log')
+ax.set_xlabel('Energy (erg)')
+ax.set_ylabel('flux (erg/cm2/s)')
+ax.legend()
+plt.savefig('plots/model_vs_data_check.png', bbox_inches='tight')
+print("Saved plots/model_vs_data_check.png")
+# mcmc_result_pwn = run_mcmc(5,pwn_pars,pwn_fit.log_prob_pwn,pwn_x,pwn_y,pwn_yerr_lo, num_threads=32,num_walkers=10, num_burn_in=100, chain_steps=300)
+
+mcmc_result_pwn = run_mcmc(
+    5, pwn_pars, pwn_fit.log_prob_pwn, pwn_x, pwn_y, pwn_yerr_lo,
+    num_threads=32,
+    num_walkers=32,  # match threads — each walker runs on one thread
+    num_burn_in=100,
+    chain_steps=300
+)
+print("Test MCMC completed, shape:", mcmc_result_pwn.shape)
+print("Sample log_prob values:", mcmc_result_pwn[:5])
+
+with open('mcmc_results/hawc_mcmc_result_pwn_smallsample.npy', 'wb') as f:
     np.save(f, mcmc_result_pwn)
 
 mcmc_pwn_fit_results, mcmc_pwn_fit_results_err_high, mcmc_pwn_fit_results_err_low = mcmc_results("pwn", pwn_labels, pwn_fit_parameters, model_parameters_pwn, mcmc_result_pwn)
 plt.show()
-plt.savefig("plots/pwn_cornerplot.png", bbox_inches='tight')
-
-
-pwn_sed_relic, fp_pwn, fr_pwn = pwn_emission_singlezone.get_pwn_sed(pwn_fit, mcmc_pwn_fit_results)
+plt.savefig("plots/pwn_cornerplot_smallsample.png", bbox_inches='tight')
+pwn_sed_relic, fp_pwn, fr_pwn = pwn_fit.get_pwn_sed(mcmc_pwn_fit_results)
 
 def draw_observations_data2(zoom=False):
     fig, ax = plt.subplots(figsize=(14, 9))
@@ -186,8 +253,7 @@ def draw_observations_data2(zoom=False):
     ax.tick_params(axis='both', which='minor', length=3)
 
     fig.tight_layout()
-    filename = "plots/datapoints_zoomed.png" if zoom else "plots/datapoints.png"
+    plt.show()
+    filename = "plots/datapoints_zoomed_smallsample.png" if zoom else "plots/datapoints_smallsample.png"
     plt.savefig(filename, bbox_inches='tight')
-
 draw_observations_data2(zoom=False)
-
